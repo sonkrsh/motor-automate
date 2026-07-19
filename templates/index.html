@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motor Automate Dashboard</title>
+    <!-- Inter Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-base: #080c14;
+            --bg-surface: rgba(17, 24, 39, 0.7);
+            --border-glow: rgba(59, 130, 246, 0.2);
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.5);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.5);
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.5);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(239, 68, 68, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        header {
+            padding: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: rgba(8, 12, 20, 0.8);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #fff;
+        }
+
+        .logo i {
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .system-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .system-status-badge.inactive {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: currentColor;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.5; }
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1.2fr 1.8fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 968px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-surface);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glow);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        /* Gauge styles */
+        .gauge-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            margin: 1rem 0;
+        }
+
+        .gauge-ring {
+            transform: rotate(-90deg);
+        }
+
+        .gauge-background {
+            stroke: rgba(255, 255, 255, 0.05);
+        }
+
+        .gauge-progress {
+            stroke-dasharray: 502;
+            stroke-dashoffset: 502;
+            transition: stroke-dashoffset 0.8s ease-in-out, stroke 0.8s ease;
+            stroke-linecap: round;
+        }
+
+        .gauge-text {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .voltage-display {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+            text-shadow: 0 0 15px rgba(255,255,255,0.1);
+        }
+
+        .voltage-lbl {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 0.25rem;
+            font-weight: 600;
+        }
+
+        /* Controls Section */
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 1rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .control-info h4 {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .control-info p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Switch styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .4s;
+            border-radius: 34px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        /* Buttons Group */
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1fr;
+            width: 100%;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: none;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* History log */
+        .log-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            overflow-y: auto;
+            max-height: 500px;
+            padding-right: 0.5rem;
+        }
+
+        /* Custom scrollbar */
+        .log-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .log-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .log-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .log-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .log-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            transition: background 0.2s ease;
+        }
+
+        .log-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .log-main {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .log-desc {
+            font-size: 0.9rem;
+            color: var(--text-main);
+            line-height: 1.4;
+        }
+
+        .log-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-info {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--primary);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .no-data i {
+            font-size: 2rem;
+            opacity: 0.3;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #1e293b;
+            color: #fff;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateY(150%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-bolt-lightning"></i>
+            <span>MOTOR AUTOMATE</span>
+        </div>
+        <div id="system-status-badge" class="system-status-badge">
+            <span class="pulse-dot"></span>
+            <span id="system-status-text">SYSTEM ACTIVE</span>
+        </div>
+    </header>
+
+    <main>
+        <!-- Left: Status & Controls -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fa-solid fa-gauge-high text-blue-500"></i> Live Monitor
+            </div>
+            
+            <div class="gauge-container">
+                <svg class="gauge-ring" width="200" height="200">
+                    <!-- Background circle -->
+                    <circle class="gauge-background" cx="100" cy="100" r="80" stroke-width="12" fill="transparent" />
+                    <!-- Progress circle -->
+                    <circle id="gauge-circle" cx="100" cy="100" r="80" stroke-width="12" fill="transparent" 
+                            stroke-dasharray="502.65" stroke-dashoffset="502.65" />
+                </svg>
+                <div class="gauge-text">
+                    <span id="voltage-value" class="voltage-display">--V</span>
+                    <span class="voltage-lbl">Voltage</span>
+                </div>
+            </div>
+
+            <div class="control-row">
+                <div class="control-info">
+                    <h4>Automation Safeguard</h4>
+                    <p>Polls voltage every 3 mins, turns off if &lt; 400V</p>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="automation-toggle" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="btn-check-now">
+                    <i class="fa-solid fa-arrows-rotate"></i> Check Now
+                </button>
+                <button class="btn btn-danger" id="btn-force-off">
+                    <i class="fa-solid fa-power-off"></i> Turn Off Motor
+                </button>
+            </div>
+        </div>
+
+        <!-- Right: Event Log -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fa-solid fa-list-check"></i> Activity Log
+            </div>
+            
+            <div class="log-container" id="log-container">
+                <div class="no-data">
+                    <i class="fa-solid fa-database"></i>
+                    <span>Waiting for updates...</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <i id="toast-icon" class="fa-solid fa-circle-info"></i>
+        <span id="toast-message">Notification message</span>
+    </div>
+
+    <script>
+        const voltageVal = document.getElementById('voltage-value');
+        const gaugeCircle = document.getElementById('gauge-circle');
+        const autoToggle = document.getElementById('automation-toggle');
+        const systemStatusText = document.getElementById('system-status-text');
+        const systemStatusBadge = document.getElementById('system-status-badge');
+        const logContainer = document.getElementById('log-container');
+        
+        const btnCheckNow = document.getElementById('btn-check-now');
+        const btnForceOff = document.getElementById('btn-force-off');
+
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        const toastIcon = document.getElementById('toast-icon');
+
+        // Circumference of r=80 circle is 502.65
+        const CIRCUMFERENCE = 502.65;
+
+        // Show a brief popup notification
+        function showToast(message, type = 'info') {
+            toastMessage.textContent = message;
+            
+            // Set icon and colors
+            toastIcon.className = 'fa-solid ';
+            if (type === 'success') {
+                toastIcon.classList.add('fa-circle-check');
+                toastIcon.style.color = 'var(--success)';
+            } else if (type === 'danger') {
+                toastIcon.classList.add('fa-circle-xmark');
+                toastIcon.style.color = 'var(--danger)';
+            } else {
+                toastIcon.classList.add('fa-circle-info');
+                toastIcon.style.color = 'var(--primary)';
+            }
+
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Set gauge display value and visual color/fill
+        function updateGauge(voltage) {
+            voltageVal.textContent = voltage ? `${Math.round(voltage)}V` : '--V';
+            
+            if (!voltage) {
+                gaugeCircle.style.strokeDashoffset = CIRCUMFERENCE;
+                gaugeCircle.style.stroke = 'rgba(255, 255, 255, 0.05)';
+                return;
+            }
+
+            // Normal range up to 500V
+            const maxGaugeVoltage = 500;
+            const percentage = Math.min(Math.max(voltage, 0) / maxGaugeVoltage, 1);
+            const offset = CIRCUMFERENCE - (percentage * CIRCUMFERENCE);
+            
+            gaugeCircle.style.strokeDashoffset = offset;
+
+            // Set color based on voltage safety rules
+            if (voltage > 10 && voltage < 400) {
+                // Danger low voltage
+                gaugeCircle.style.stroke = 'var(--danger)';
+                gaugeCircle.style.filter = 'drop-shadow(0 0 8px var(--danger-glow))';
+            } else if (voltage <= 10) {
+                // Inactive / zero power
+                gaugeCircle.style.stroke = 'var(--text-muted)';
+                gaugeCircle.style.filter = 'none';
+            } else {
+                // Perfect normal line voltage (>= 400)
+                gaugeCircle.style.stroke = 'var(--success)';
+                gaugeCircle.style.filter = 'drop-shadow(0 0 8px var(--success-glow))';
+            }
+        }
+
+        // Build log HTML list
+        function updateLogs(history) {
+            if (!history || history.length === 0) {
+                logContainer.innerHTML = `
+                    <div class="no-data">
+                        <i class="fa-solid fa-database"></i>
+                        <span>No logs available yet.</span>
+                    </div>`;
+                return;
+            }
+
+            logContainer.innerHTML = history.map(item => {
+                let badgeClass = 'badge-info';
+                if (item.action === 'OFF_TRIGGERED') badgeClass = 'badge-warning';
+                else if (item.action === 'OFF_FAILED' || item.action === 'CHECK_ERROR') badgeClass = 'badge-danger';
+                else if (item.voltage >= 400) badgeClass = 'badge-success';
+
+                const displayAction = item.action.replace('_', ' ');
+
+                return `
+                    <div class="log-item">
+                        <div class="log-main">
+                            <span class="log-desc">${item.details}</span>
+                            <span class="log-time">
+                                <i class="fa-regular fa-clock"></i> ${item.timestamp}
+                            </span>
+                        </div>
+                        <span class="badge ${badgeClass}">${displayAction}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Poll API to load current state
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status');
+                if (!res.ok) throw new Error("HTTP status " + res.status);
+                const data = await res.json();
+                
+                // Update active state indicator
+                autoToggle.checked = data.is_active;
+                if (data.is_active) {
+                    systemStatusText.textContent = "SYSTEM ACTIVE";
+                    systemStatusBadge.classList.remove('inactive');
+                } else {
+                    systemStatusText.textContent = "SYSTEM PAUSED";
+                    systemStatusBadge.classList.add('inactive');
+                }
+
+                updateGauge(data.last_voltage);
+                updateLogs(data.history);
+
+            } catch (err) {
+                console.error("Failed to load status:", err);
+            }
+        }
+
+        // Action: Check Now
+        btnCheckNow.addEventListener('click', async () => {
+            btnCheckNow.disabled = true;
+            btnCheckNow.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Checking...';
+            
+            try {
+                const res = await fetch('/api/check', { method: 'POST' });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(`Check completed! Voltage is ${data.voltage}V.`, data.voltage < 400 && data.voltage > 10 ? 'danger' : 'success');
+                    updateGauge(data.voltage);
+                    await fetchStatus();
+                } else {
+                    showToast(data.detail || "Check failed.", "danger");
+                }
+            } catch (err) {
+                showToast("Network error occurred.", "danger");
+            } finally {
+                btnCheckNow.disabled = false;
+                btnCheckNow.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Check Now';
+            }
+        });
+
+        // Action: Force Turn Off
+        btnForceOff.addEventListener('click', async () => {
+            if (!confirm("Are you sure you want to turn off the water motor plug?")) return;
+            
+            btnForceOff.disabled = true;
+            btnForceOff.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Shutting off...';
+            
+            try {
+                const res = await fetch('/api/turn-off', { method: 'POST' });
+                const data = await res.json();
+                
+                if (res.ok && data.success) {
+                    showToast("Plug command sent: " + data.message, "success");
+                    await fetchStatus();
+                } else {
+                    showToast(data.error || "Turn off failed.", "danger");
+                }
+            } catch (err) {
+                showToast("Network error occurred.", "danger");
+            } finally {
+                btnForceOff.disabled = false;
+                btnForceOff.innerHTML = '<i class="fa-solid fa-power-off"></i> Turn Off Motor';
+            }
+        });
+
+        // Action: Toggle Automation Check
+        autoToggle.addEventListener('change', async () => {
+            const active = autoToggle.checked;
+            try {
+                const res = await fetch('/api/toggle-automation', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ active })
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(active ? "Automation safeguarded enabled." : "Automation check paused.", "info");
+                    await fetchStatus();
+                } else {
+                    autoToggle.checked = !active; // revert
+                    showToast(data.detail || "Failed to toggle status.", "danger");
+                }
+            } catch (err) {
+                autoToggle.checked = !active; // revert
+                showToast("Network error.", "danger");
+            }
+        });
+
+        // Initial fetch and start intervals
+        fetchStatus();
+        setInterval(fetchStatus, 5000); // Poll server every 5 seconds for UI state sync
+    </script>
+</body>
+</html>
