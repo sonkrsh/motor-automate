@@ -73,4 +73,30 @@ async def manual_turn_off():
     result = await TPLinkClient.turn_off()
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error"))
+    
+    # Reset monitor interval to slow mode immediately
+    monitor_instance.current_interval = monitor_instance.slow_interval
+    monitor_instance.just_turned_on = False
+    logger.info("Motor turned OFF manually via Web UI. Shifted background interval to SLOW mode.")
+    return result
+
+@app.post("/api/turn-on")
+async def manual_turn_on():
+    """Triggers the turn-on shadow patch endpoint manually and starts monitoring."""
+    logger.info("Manual turn-on request received.")
+    result = await TPLinkClient.turn_on()
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    
+    # Switch the background monitor interval to fast mode immediately
+    monitor_instance.current_interval = monitor_instance.fast_interval
+    monitor_instance.just_turned_on = True
+    logger.info("Motor turned ON manually via Web UI. Shifted background interval to FAST mode.")
+    
+    # Trigger an immediate check so the user sees the voltage right away and safety check runs
+    try:
+        await monitor_instance.check_now()
+    except Exception as e:
+        logger.error(f"Failed to run immediate check after manual turn-on: {str(e)}")
+        
     return result

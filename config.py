@@ -19,7 +19,8 @@ class Config:
     X_STRICT = os.getenv("X_STRICT", "0")
     X_TERM_ID = os.getenv("X_TERM_ID", "")
 
-    MONITOR_INTERVAL_SECONDS = int(os.getenv("MONITOR_INTERVAL_SECONDS", "180"))
+    MONITOR_FAST_INTERVAL_SECONDS = int(os.getenv("MONITOR_FAST_INTERVAL_SEC", "180"))
+    MONITOR_SLOW_INTERVAL_SECONDS = int(os.getenv("MONITOR_SLOW_INTERVAL_SEC", "900"))
     VOLTAGE_MIN_THRESHOLD = float(os.getenv("VOLTAGE_MIN_THRESHOLD", "10.0"))
     VOLTAGE_MAX_THRESHOLD = float(os.getenv("VOLTAGE_MAX_THRESHOLD", "400.0"))
 
