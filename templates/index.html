@@ -123,6 +123,29 @@
             }
         }
 
+        /* Mobile */
+        @media (max-width: 640px) {
+            header {
+                padding: 1.1rem 1rem;
+                flex-wrap: wrap;
+                gap: 0.75rem;
+            }
+            .logo { font-size: 1.2rem; }
+            .system-status-badge { font-size: 0.8rem; padding: 0.4rem 0.8rem; }
+            main { padding: 1rem; gap: 1.25rem; }
+            .card { padding: 1.25rem; border-radius: 1rem; gap: 1.25rem; }
+            .card-title { font-size: 1.1rem; }
+            .voltage-display { font-size: 2.4rem; }
+            .btn { padding: 0.85rem; font-size: 0.9rem; }
+            .control-row { padding: 0.85rem; }
+            .toast { left: 1rem; right: 1rem; bottom: 1rem; }
+        }
+
+        /* Narrow phones: stack the On/Off buttons */
+        @media (max-width: 380px) {
+            .btn-group { grid-template-columns: 1fr; }
+        }
+
         .card {
             background: var(--bg-surface);
             backdrop-filter: blur(12px);
@@ -269,6 +292,25 @@
         input:checked + .slider:before {
             transform: translateX(24px);
         }
+
+        /* Bucket progress bar */
+        .bucket-track {
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .bucket-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            border-radius: 999px;
+            transition: width 0.6s ease;
+        }
+        #motor-status.on { color: var(--success); font-weight: 600; }
+        #motor-status.off { color: var(--text-muted); font-weight: 600; }
 
         /* Buttons Group */
         .btn-group {
@@ -489,15 +531,25 @@
                 </div>
             </div>
 
-            <div class="control-row">
-                <div class="control-info">
-                    <h4>Automation Safeguard</h4>
-                    <p>Polls voltage every 3 mins, turns off if &lt; 400V</p>
+            <div class="control-row" style="flex-direction: column; align-items: stretch; gap: 0.85rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="control-info">
+                        <h4>Bucket Progress</h4>
+                        <p><span id="bucket-value">0.00</span> / <span id="bucket-size">2</span> hrs
+                           &nbsp;&middot;&nbsp; Motor: <span id="motor-status" class="off">OFF</span></p>
+                    </div>
+                    <button class="btn" id="btn-reset-bucket"
+                            style="padding: 0.5rem 1rem; font-size: 0.8rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1);">
+                        <i class="fa-solid fa-rotate-left"></i> Reset
+                    </button>
                 </div>
-                <label class="switch">
-                    <input type="checkbox" id="automation-toggle" checked>
-                    <span class="slider"></span>
-                </label>
+                <div class="bucket-track"><div class="bucket-fill" id="bucket-fill"></div></div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <label for="bucket-size-input" style="font-size: 0.8rem; color: var(--text-muted);">Set Bucket Size (hrs)</label>
+                    <input type="number" id="bucket-size-input" min="0.1" step="0.1" value="2"
+                           style="width: 80px; padding: 0.4rem 0.6rem; border-radius: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-family: inherit;">
+                    <button class="btn btn-primary" id="btn-set-size" style="padding: 0.4rem 0.9rem; font-size: 0.8rem;">Set</button>
+                </div>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 1rem; width: 100%;">
@@ -515,12 +567,38 @@
             </div>
         </div>
 
-        <!-- Right: Event Log -->
+        <!-- Right: Schedules + Event Log -->
         <div class="card">
             <div class="card-title">
+                <i class="fa-solid fa-clock"></i> App Schedules (<span id="schedule-tz">IST</span>)
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <input type="time" id="schedule-time-input" value="02:00"
+                       style="padding: 0.5rem 0.6rem; border-radius: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-family: inherit;">
+                <button class="btn btn-primary" id="btn-add-schedule" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+                    <i class="fa-solid fa-plus"></i> Add
+                </button>
+                <span style="font-size: 0.78rem; color: var(--text-muted);">Motor auto-turns ON at each time</span>
+            </div>
+            <div id="schedule-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+
+            <div class="card-title" style="margin-top: 0.5rem;">
+                <i class="fa-solid fa-cloud"></i> TP-Link Cloud Schedules
+            </div>
+            <div>
+                <button class="btn" id="btn-fetch-tplink" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1);">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> Fetch from TP-Link
+                </button>
+                <span style="font-size: 0.78rem; color: var(--text-muted); margin-left: 0.5rem;">Auto-fetched 00:30 daily; ON-times turn the motor on</span>
+            </div>
+            <div id="tplink-schedule-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <span style="font-size:0.8rem;color:var(--text-muted);">Not fetched yet.</span>
+            </div>
+
+            <div class="card-title" style="margin-top: 0.5rem;">
                 <i class="fa-solid fa-list-check"></i> Activity Log
             </div>
-            
+
             <div class="log-container" id="log-container">
                 <div class="no-data">
                     <i class="fa-solid fa-database"></i>
@@ -539,7 +617,6 @@
     <script>
         const voltageVal = document.getElementById('voltage-value');
         const gaugeCircle = document.getElementById('gauge-circle');
-        const autoToggle = document.getElementById('automation-toggle');
         const systemStatusText = document.getElementById('system-status-text');
         const systemStatusBadge = document.getElementById('system-status-badge');
         const logContainer = document.getElementById('log-container');
@@ -547,6 +624,29 @@
         const btnCheckNow = document.getElementById('btn-check-now');
         const btnForceOn = document.getElementById('btn-force-on');
         const btnForceOff = document.getElementById('btn-force-off');
+        const btnResetBucket = document.getElementById('btn-reset-bucket');
+
+        const bucketValue = document.getElementById('bucket-value');
+        const bucketSize = document.getElementById('bucket-size');
+        const bucketFill = document.getElementById('bucket-fill');
+        const motorStatus = document.getElementById('motor-status');
+        const bucketSizeInput = document.getElementById('bucket-size-input');
+        const btnSetSize = document.getElementById('btn-set-size');
+        const scheduleTimeInput = document.getElementById('schedule-time-input');
+        const btnAddSchedule = document.getElementById('btn-add-schedule');
+        const scheduleList = document.getElementById('schedule-list');
+        const scheduleTz = document.getElementById('schedule-tz');
+        const btnFetchTplink = document.getElementById('btn-fetch-tplink');
+        const tplinkList = document.getElementById('tplink-schedule-list');
+
+        // Format 24h "HH:MM" as 12h "HH:MM AM/PM"
+        function fmt12(hhmm) {
+            if (!hhmm || hhmm.indexOf(':') < 0) return hhmm || '';
+            let [h, m] = hhmm.split(':').map(Number);
+            const ap = h >= 12 ? 'PM' : 'AM';
+            let h12 = h % 12; if (h12 === 0) h12 = 12;
+            return String(h12).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ' ' + ap;
+        }
 
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toast-message');
@@ -644,6 +744,64 @@
             }).join('');
         }
 
+        // Render bucket progress + motor status
+        function updateBucket(data) {
+            const size = (typeof data.bucket_size === 'number') ? data.bucket_size : 5;
+            const progress = (typeof data.bucket_progress === 'number') ? data.bucket_progress : 0;
+            bucketValue.textContent = progress.toFixed(2);
+            bucketSize.textContent = size;
+            const pct = size > 0 ? Math.min(progress / size, 1) * 100 : 0;
+            bucketFill.style.width = pct + '%';
+            // Keep the input in sync, but don't fight the user while they're editing.
+            if (document.activeElement !== bucketSizeInput) {
+                bucketSizeInput.value = size;
+            }
+
+            const status = data.motor_status || (data.session_active ? 'ON' : 'OFF');
+            motorStatus.textContent = status;
+            motorStatus.className = status === 'ON' ? 'on' : 'off';
+        }
+
+        // Render the schedule list with enable/disable + delete controls
+        function renderSchedules(schedules, timezone) {
+            if (scheduleTz && timezone) scheduleTz.textContent = timezone;
+            schedules = schedules || [];
+            if (schedules.length === 0) {
+                scheduleList.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No schedules set.</span>';
+                return;
+            }
+            scheduleList.innerHTML = schedules.map(s => `
+                <div class="log-item" style="align-items:center;">
+                    <div class="log-main">
+                        <span class="log-desc"><i class="fa-solid fa-power-off" style="transform:rotate(180deg);"></i> ${fmt12(s.time)} &rarr; Motor ON</span>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <span class="badge ${s.enabled ? 'badge-success' : 'badge-warning'}" data-toggle="${s.id}" style="cursor:pointer;">${s.enabled ? 'Enabled' : 'Disabled'}</span>
+                        <span class="badge badge-danger" data-del="${s.id}" style="cursor:pointer;"><i class="fa-solid fa-trash"></i></span>
+                    </div>
+                </div>`).join('');
+            scheduleList.querySelectorAll('[data-del]').forEach(el =>
+                el.addEventListener('click', () => deleteSchedule(el.getAttribute('data-del'))));
+            scheduleList.querySelectorAll('[data-toggle]').forEach(el =>
+                el.addEventListener('click', () => toggleSchedule(el.getAttribute('data-toggle'))));
+        }
+
+        async function deleteSchedule(id) {
+            try {
+                const res = await fetch('/api/schedules/' + id, { method: 'DELETE' });
+                if (res.ok) { showToast("Schedule removed.", "info"); await fetchStatus(); }
+                else showToast("Failed to remove schedule.", "danger");
+            } catch (e) { showToast("Network error.", "danger"); }
+        }
+
+        async function toggleSchedule(id) {
+            try {
+                const res = await fetch('/api/schedules/' + id + '/toggle', { method: 'POST' });
+                if (res.ok) { await fetchStatus(); }
+                else showToast("Failed to update schedule.", "danger");
+            } catch (e) { showToast("Network error.", "danger"); }
+        }
+
         let pollingInterval = null;
 
         function startPolling() {
@@ -669,7 +827,6 @@
                 const data = await res.json();
                 
                 // Update active state indicator
-                autoToggle.checked = data.is_active;
                 if (data.is_active) {
                     systemStatusText.textContent = "SYSTEM ACTIVE";
                     systemStatusBadge.classList.remove('inactive');
@@ -680,9 +837,14 @@
 
                 updateGauge(data.last_voltage);
                 updateLogs(data.history);
+                updateBucket(data);
+                renderSchedules(data.schedules, data.timezone);
+                if (data.tplink_schedules) renderTplinkSchedules(data.tplink_schedules);
 
-                // Smart polling control: only poll every 5s if the plug is ON
-                if (data.last_voltage && data.last_voltage > 10.0) {
+                // Keep refreshing while a polling session is active (motor is ON and
+                // being watched), regardless of the current voltage value. When the
+                // session ends (motor off / auto shutdown), stop refreshing.
+                if (data.session_active) {
                     startPolling();
                 } else {
                     stopPolling();
@@ -767,27 +929,114 @@
             }
         });
 
-        // Action: Toggle Automation Check
-        autoToggle.addEventListener('change', async () => {
-            const active = autoToggle.checked;
+        // Render read-only TP-Link cloud schedules
+        function renderTplinkSchedules(schedules) {
+            schedules = schedules || [];
+            if (schedules.length === 0) {
+                tplinkList.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">No schedules on the TP-Link cloud.</span>';
+                return;
+            }
+            tplinkList.innerHTML = schedules.map(s => `
+                <div class="log-item" style="align-items:center;">
+                    <div class="log-main">
+                        <span class="log-desc"><i class="fa-solid fa-power-off"></i> ${fmt12(s.time)} &rarr; Motor ${s.on ? 'ON' : 'OFF'}</span>
+                    </div>
+                    <span class="badge ${s.enabled ? 'badge-success' : 'badge-warning'}">${s.enabled ? 'Enabled' : 'Disabled'}</span>
+                </div>`).join('');
+        }
+
+        // Action: Fetch TP-Link cloud schedules (read-only)
+        btnFetchTplink.addEventListener('click', async () => {
+            btnFetchTplink.disabled = true;
+            const orig = btnFetchTplink.innerHTML;
+            btnFetchTplink.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Fetching...';
             try {
-                const res = await fetch('/api/toggle-automation', { 
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ active })
-                });
+                const res = await fetch('/api/tplink-schedules');
                 const data = await res.json();
-                
                 if (res.ok) {
-                    showToast(active ? "Automation safeguarded enabled." : "Automation check paused.", "info");
-                    await fetchStatus();
+                    renderTplinkSchedules(data.schedules);
+                    showToast("Fetched " + (data.schedules || []).length + " TP-Link schedule(s).", "success");
                 } else {
-                    autoToggle.checked = !active; // revert
-                    showToast(data.detail || "Failed to toggle status.", "danger");
+                    showToast(data.detail || "Failed to fetch TP-Link schedules.", "danger");
                 }
             } catch (err) {
-                autoToggle.checked = !active; // revert
-                showToast("Network error.", "danger");
+                showToast("Network error occurred.", "danger");
+            } finally {
+                btnFetchTplink.disabled = false;
+                btnFetchTplink.innerHTML = orig;
+            }
+        });
+
+        // Action: Add Schedule
+        btnAddSchedule.addEventListener('click', async () => {
+            const time = scheduleTimeInput.value;
+            if (!time) { showToast("Pick a time first.", "danger"); return; }
+            btnAddSchedule.disabled = true;
+            try {
+                const res = await fetch('/api/schedules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ time })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("Schedule added for " + time + ".", "success");
+                    await fetchStatus();
+                } else {
+                    showToast(data.detail || "Failed to add schedule.", "danger");
+                }
+            } catch (err) {
+                showToast("Network error occurred.", "danger");
+            } finally {
+                btnAddSchedule.disabled = false;
+            }
+        });
+
+        // Action: Set Bucket Size
+        btnSetSize.addEventListener('click', async () => {
+            const size = parseFloat(bucketSizeInput.value);
+            if (!(size > 0)) {
+                showToast("Enter a bucket size greater than 0.", "danger");
+                return;
+            }
+            btnSetSize.disabled = true;
+            try {
+                const res = await fetch('/api/bucket-size', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ size })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("Bucket size set to " + data.bucket_size + " hrs.", "info");
+                    await fetchStatus();
+                } else {
+                    showToast(data.detail || "Failed to set bucket size.", "danger");
+                }
+            } catch (err) {
+                showToast("Network error occurred.", "danger");
+            } finally {
+                btnSetSize.disabled = false;
+            }
+        });
+
+        // Action: Reset Bucket
+        btnResetBucket.addEventListener('click', async () => {
+            if (!confirm("Reset the bucket progress back to 0?")) return;
+            btnResetBucket.disabled = true;
+            try {
+                const res = await fetch('/api/reset-bucket', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("Bucket progress reset to 0.", "info");
+                    await fetchStatus();
+                } else {
+                    showToast("Failed to reset bucket.", "danger");
+                }
+            } catch (err) {
+                showToast("Network error occurred.", "danger");
+            } finally {
+                btnResetBucket.disabled = false;
             }
         });
 

@@ -4,6 +4,10 @@ venv/
 env/
 ENV/
 
+# Persistent runtime state
+bucket_state.json
+schedules.json
+
 # Python cache
 __pycache__/
 *.pyc

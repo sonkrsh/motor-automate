@@ -19,10 +19,33 @@ class Config:
     X_STRICT = os.getenv("X_STRICT", "0")
     X_TERM_ID = os.getenv("X_TERM_ID", "")
 
-    MONITOR_FAST_INTERVAL_SECONDS = int(os.getenv("MONITOR_FAST_INTERVAL_SEC", "180"))
-    MONITOR_SLOW_INTERVAL_SECONDS = int(os.getenv("MONITOR_SLOW_INTERVAL_SEC", "900"))
+    # A voltage reading is "abnormal" when MIN < reading < MAX.
     VOLTAGE_MIN_THRESHOLD = float(os.getenv("VOLTAGE_MIN_THRESHOLD", "10.0"))
     VOLTAGE_MAX_THRESHOLD = float(os.getenv("VOLTAGE_MAX_THRESHOLD", "400.0"))
+
+    # Polling session: after the motor is turned on, read voltage every
+    # POLL_INTERVAL_SECONDS and keep the last VOLTAGE_WINDOW_SIZE readings
+    # (10s x 18 = ~3 minutes). The motor is shut off only when every reading
+    # in a full window is abnormal (a sustained under-load / dry run).
+    POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SEC", "10"))
+    VOLTAGE_WINDOW_SIZE = int(os.getenv("VOLTAGE_WINDOW_SIZE", "18"))
+
+    # Bucket: cumulative motor runtime (in HOURS) accrued while voltage > VOLTAGE_MAX.
+    # BUCKET_SIZE is the capacity in units where 1 unit = 1 hour of runtime above max.
+    # When bucket_progress >= BUCKET_SIZE the motor is shut off (Condition 2).
+    BUCKET_SIZE = float(os.getenv("BUCKET_SIZE", "2"))
+    # Automatic daily bucket reset time (local 24h clock).
+    BUCKET_RESET_HOUR = int(os.getenv("BUCKET_RESET_HOUR", "11"))
+    BUCKET_RESET_MINUTE = int(os.getenv("BUCKET_RESET_MINUTE", "0"))
+    # Persistent bucket state file (survives restarts; reset only on manual/daily).
+    BUCKET_STATE_FILE = os.getenv("BUCKET_STATE_FILE", "bucket_state.json")
+
+    # Schedules: UI-managed times (in this timezone) at which the motor auto-turns ON.
+    SCHEDULE_TIMEZONE = os.getenv("SCHEDULE_TIMEZONE", "Asia/Kolkata")   # IST
+    SCHEDULES_FILE = os.getenv("SCHEDULES_FILE", "schedules.json")
+    # Daily auto-fetch of TP-Link cloud schedules (local 24h clock).
+    TPLINK_SYNC_HOUR = int(os.getenv("TPLINK_SYNC_HOUR", "0"))
+    TPLINK_SYNC_MINUTE = int(os.getenv("TPLINK_SYNC_MINUTE", "30"))
 
     @classmethod
     def get_headers(cls) -> dict:
