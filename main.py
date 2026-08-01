@@ -141,7 +141,10 @@ async def manual_turn_off():
     async with monitor_instance.lock:
         result = await TPLinkClient.turn_off()
     if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("error"))
+        # An expired Authorization token is reported as 401 so the dashboard can
+        # tell "token needs re-capturing" apart from an ordinary device failure.
+        status = 401 if result.get("token_error") else 400
+        raise HTTPException(status_code=status, detail=result.get("error"))
 
     # Motor is off: end the polling session and clear its rolling history/timers.
     monitor_instance.stop_session("Motor turned OFF manually via Web UI.")
@@ -156,7 +159,10 @@ async def manual_turn_on():
     async with monitor_instance.lock:
         result = await TPLinkClient.turn_on()
     if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("error"))
+        # An expired Authorization token is reported as 401 so the dashboard can
+        # tell "token needs re-capturing" apart from an ordinary device failure.
+        status = 401 if result.get("token_error") else 400
+        raise HTTPException(status_code=status, detail=result.get("error"))
 
     # Motor is on: begin a fresh 3-minute voltage polling session. The background
     # loop now reads every 10s and will shut the motor off only after a full

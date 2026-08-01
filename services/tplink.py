@@ -5,6 +5,27 @@ from config import Config
 
 logger = logging.getLogger("motor_automate.tplink")
 
+# The cloud answers HTTP 401 {"code": 10000, ...} once the captured `ut|...` token
+# expires. Nothing downstream can recover from it, so it is reported as its own
+# error instead of surfacing as a confusing "could not extract curVersion".
+TOKEN_ERROR_MESSAGE = (
+    "TP-Link token expired or invalid (HTTP 401). Capture a fresh Authorization "
+    "token from the Tapo app, update AUTHORIZATION in .env, and restart the app."
+)
+
+
+class TokenInvalidError(Exception):
+    """Raised when the TP-Link cloud rejects the configured Authorization token."""
+
+    def __init__(self):
+        super().__init__(TOKEN_ERROR_MESSAGE)
+
+
+def _token_error_result() -> dict:
+    logger.error(TOKEN_ERROR_MESSAGE)
+    return {"success": False, "error": TOKEN_ERROR_MESSAGE, "token_error": True}
+
+
 class TPLinkClient:
     @staticmethod
     async def get_voltage() -> float:
@@ -23,6 +44,8 @@ class TPLinkClient:
                     voltage = float(data.get("current_power", 0.0))
                     logger.info(f"Fetched voltage successfully: {voltage}V")
                     return voltage
+                elif response.status_code == 401:
+                    raise TokenInvalidError()
                 else:
                     logger.error(f"Failed to fetch voltage. HTTP {response.status_code}: {response.text}")
                     raise httpx.HTTPStatusError(
@@ -51,6 +74,7 @@ class TPLinkClient:
         }
         
         cur_version = None
+        response = None
         async with httpx.AsyncClient(verify=False) as client:
             try:
                 logger.info("Probing shadow endpoint for present version...")
@@ -64,8 +88,13 @@ class TPLinkClient:
                     logger.warning(f"Probe failed as expected. HTTP {response.status_code}: {response.text}")
             except httpx.HTTPError as e:
                 # Catching client HTTP status errors
-                response = e.response
-            
+                response = getattr(e, "response", None)
+
+            if response is None:
+                return {"success": False, "error": "Shadow probe failed: no response from TP-Link cloud."}
+            if response.status_code == 401:
+                return _token_error_result()
+
             # Extract curVersion from response body
             try:
                 err_data = response.json()
@@ -96,6 +125,8 @@ class TPLinkClient:
                     data = response.json()
                     logger.info("Successfully turned off the motor plug.")
                     return {"success": True, "message": "Plug turned off successfully", "version": target_version, "data": data}
+                elif response.status_code == 401:
+                    return _token_error_result()
                 else:
                     logger.error(f"Failed to patch shadow. HTTP {response.status_code}: {response.text}")
                     return {"success": False, "error": f"Failed patch with status {response.status_code}: {response.text}"}
@@ -122,6 +153,7 @@ class TPLinkClient:
         }
         
         cur_version = None
+        response = None
         async with httpx.AsyncClient(verify=False) as client:
             try:
                 logger.info("Probing shadow endpoint for present version (turn on)...")
@@ -131,8 +163,13 @@ class TPLinkClient:
                     logger.info("Unexpected success on version 1. Plug state modified.")
                     return {"success": True, "message": "Plug turned on directly using version 1", "data": data}
             except httpx.HTTPError as e:
-                response = e.response
-            
+                response = getattr(e, "response", None)
+
+            if response is None:
+                return {"success": False, "error": "Shadow probe failed: no response from TP-Link cloud."}
+            if response.status_code == 401:
+                return _token_error_result()
+
             # Extract curVersion from response body
             try:
                 err_data = response.json()
@@ -163,6 +200,8 @@ class TPLinkClient:
                     data = response.json()
                     logger.info("Successfully turned on the motor plug.")
                     return {"success": True, "message": "Plug turned on successfully", "version": target_version, "data": data}
+                elif response.status_code == 401:
+                    return _token_error_result()
                 else:
                     logger.error(f"Failed to patch shadow. HTTP {response.status_code}: {response.text}")
                     return {"success": False, "error": f"Failed patch with status {response.status_code}: {response.text}"}
@@ -186,6 +225,9 @@ class TPLinkClient:
                     rules = data.get("ruleList", [])
                     logger.info(f"Fetched {len(rules)} schedule rules successfully.")
                     return rules
+                elif response.status_code == 401:
+                    logger.error(TOKEN_ERROR_MESSAGE)
+                    return []
                 else:
                     logger.error(f"Failed to fetch schedules. HTTP {response.status_code}: {response.text}")
                     return []
