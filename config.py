@@ -21,7 +21,7 @@ class Config:
 
     # A voltage reading is "abnormal" when MIN < reading < MAX.
     VOLTAGE_MIN_THRESHOLD = float(os.getenv("VOLTAGE_MIN_THRESHOLD", "10.0"))
-    VOLTAGE_MAX_THRESHOLD = float(os.getenv("VOLTAGE_MAX_THRESHOLD", "400.0"))
+    VOLTAGE_MAX_THRESHOLD = float(os.getenv("VOLTAGE_MAX_THRESHOLD", "430.0"))
 
     # Polling session: after the motor is turned on, read voltage every
     # POLL_INTERVAL_SECONDS and keep the last VOLTAGE_WINDOW_SIZE readings

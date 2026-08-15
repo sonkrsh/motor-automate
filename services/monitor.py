@@ -19,7 +19,7 @@ class MotorMonitor:
 
     Voltage window (Condition 1): while the motor is ON, read voltage every
     POLL_INTERVAL_SECONDS into a rolling ~3-minute window. If a FULL window is
-    entirely in the 10-400 band, shut the motor off.
+    entirely in the 10-430 band, shut the motor off.
 
     Bucket (Condition 2): every 10s where voltage > VOLTAGE_MAX, accrue the elapsed
     real time (in hours) into `bucket_progress`. When it reaches BUCKET_SIZE, shut
