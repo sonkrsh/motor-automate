@@ -257,6 +257,17 @@ class MotorMonitor:
             logger.info(f"{label} due, but motor already ON; skipping.")
             self.add_log(self.last_voltage, "SCHEDULE", f"{label}: motor already ON.")
             return
+        # Bucket full: skip the auto turn-ON entirely (do NOT turn the motor off).
+        if self.bucket_progress >= self.bucket_size:
+            logger.info(
+                f"{label} due, but bucket full "
+                f"({self.bucket_progress:.4f} >= {self.bucket_size}); skipping turn-ON."
+            )
+            self.add_log(
+                self.last_voltage, "SCHEDULE_SKIPPED",
+                f"{label}: bucket full ({self.bucket_progress:.2f}/{self.bucket_size}h); ON skipped."
+            )
+            return
         logger.info(f"{label} fired: turning motor ON.")
         async with self.lock:
             result = await TPLinkClient.turn_on()
@@ -288,7 +299,7 @@ class MotorMonitor:
             })
         parsed.sort(key=lambda x: x["time"])
         self.tplink_schedules = parsed
-        self.tplink_last_fetch = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.tplink_last_fetch = self._now_str()
         logger.info(f"Fetched {len(parsed)} TP-Link schedule(s); cached.")
         return parsed
 
@@ -319,8 +330,13 @@ class MotorMonitor:
     # ------------------------------------------------------------------ #
     # History helper
     # ------------------------------------------------------------------ #
+    def _now_str(self) -> str:
+        """Current time as 'YYYY-MM-DD hh:mm:ss AM/PM' in the configured timezone (IST)."""
+        now = datetime.datetime.now(self._tz) if self._tz else datetime.datetime.now()
+        return now.strftime("%Y-%m-%d %I:%M:%S %p")
+
     def add_log(self, voltage, action: str, details: str):
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = self._now_str()
         self.history.insert(0, {
             "timestamp": now, "voltage": voltage, "action": action, "details": details,
         })
@@ -336,7 +352,7 @@ class MotorMonitor:
             return await self._read_voltage_locked(feed_window=False)
 
     async def _read_voltage_locked(self, feed_window: bool) -> dict:
-        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_str = self._now_str()
         self.last_run = now_str
         try:
             voltage = await TPLinkClient.get_voltage()
