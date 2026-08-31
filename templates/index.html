@@ -495,6 +495,22 @@
         .toast.show {
             transform: translateY(0);
         }
+
+        .token-alert-banner {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.35));
+            border-bottom: 1px solid rgba(239, 68, 68, 0.4);
+            padding: 0.85rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #fca5a5;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -509,6 +525,21 @@
             <span id="system-status-text">SYSTEM ACTIVE</span>
         </div>
     </header>
+
+    <div id="token-alert-banner" class="token-alert-banner" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.25rem; color: var(--danger);"></i>
+            <div>
+                <strong style="color: #fff;">TP-Link Token Expired (HTTP 401)</strong>
+                <p style="font-size: 0.85rem; opacity: 0.9;">Authentication failed. Update the Authorization token or re-authenticate below.</p>
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button id="banner-reauth-btn" class="btn" style="display:none; padding: 0.4rem 0.8rem; font-size: 0.8rem; background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.3);">
+                <i class="fa-solid fa-arrows-rotate"></i> Auto Re-Auth
+            </button>
+        </div>
+    </div>
 
     <main>
         <!-- Left: Status & Controls -->
@@ -549,6 +580,27 @@
                     <input type="number" id="bucket-size-input" min="0.1" step="0.1" value="2"
                            style="width: 80px; padding: 0.4rem 0.6rem; border-radius: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-family: inherit;">
                     <button class="btn btn-primary" id="btn-set-size" style="padding: 0.4rem 0.9rem; font-size: 0.8rem;">Set</button>
+                </div>
+            </div>
+
+            <!-- Cloud Auth / Token Settings -->
+            <div class="control-row" style="flex-direction: column; align-items: stretch; gap: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="control-info">
+                        <h4>TP-Link Cloud Auth</h4>
+                        <p id="token-status-desc" style="font-size: 0.8rem; color: var(--text-muted);">Checking token...</p>
+                    </div>
+                    <span id="token-status-badge" class="badge badge-success">Active</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <input type="password" id="token-input" placeholder="Paste fresh ut|... token"
+                           style="flex: 1; min-width: 160px; padding: 0.45rem 0.65rem; border-radius: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-family: inherit; font-size: 0.82rem;">
+                    <button class="btn btn-primary" id="btn-update-token" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">
+                        <i class="fa-solid fa-key"></i> Update
+                    </button>
+                    <button class="btn" id="btn-reauth" style="display: none; padding: 0.45rem 0.85rem; font-size: 0.8rem; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #fff;">
+                        <i class="fa-solid fa-arrows-rotate"></i> Re-Auth
+                    </button>
                 </div>
             </div>
 
@@ -638,6 +690,14 @@
         const scheduleTz = document.getElementById('schedule-tz');
         const btnFetchTplink = document.getElementById('btn-fetch-tplink');
         const tplinkList = document.getElementById('tplink-schedule-list');
+
+        const tokenAlertBanner = document.getElementById('token-alert-banner');
+        const bannerReauthBtn = document.getElementById('banner-reauth-btn');
+        const tokenStatusBadge = document.getElementById('token-status-badge');
+        const tokenStatusDesc = document.getElementById('token-status-desc');
+        const tokenInput = document.getElementById('token-input');
+        const btnUpdateToken = document.getElementById('btn-update-token');
+        const btnReauth = document.getElementById('btn-reauth');
 
         // Format 24h "HH:MM" as 12h "HH:MM AM/PM"
         function fmt12(hhmm) {
@@ -841,6 +901,27 @@
                 renderSchedules(data.schedules, data.timezone);
                 if (data.tplink_schedules) renderTplinkSchedules(data.tplink_schedules);
 
+                // Update token status
+                if (data.token_error) {
+                    tokenAlertBanner.style.display = 'flex';
+                    tokenStatusBadge.className = 'badge badge-danger';
+                    tokenStatusBadge.textContent = 'Expired (401)';
+                    tokenStatusDesc.textContent = data.token_error_message || 'Token expired (HTTP 401).';
+                } else {
+                    tokenAlertBanner.style.display = 'none';
+                    tokenStatusBadge.className = 'badge badge-success';
+                    tokenStatusBadge.textContent = 'Active';
+                    tokenStatusDesc.textContent = data.has_credentials ? 'Auto-refresh enabled' : 'Manual token active';
+                }
+
+                if (data.has_credentials) {
+                    btnReauth.style.display = 'inline-flex';
+                    bannerReauthBtn.style.display = 'inline-flex';
+                } else {
+                    btnReauth.style.display = 'none';
+                    bannerReauthBtn.style.display = 'none';
+                }
+
                 // Keep refreshing while a polling session is active (motor is ON and
                 // being watched), regardless of the current voltage value. When the
                 // session ends (motor off / auto shutdown), stop refreshing.
@@ -1039,6 +1120,54 @@
                 btnResetBucket.disabled = false;
             }
         });
+
+        // Action: Update Authorization Token
+        btnUpdateToken.addEventListener('click', async () => {
+            const token = tokenInput.value.trim();
+            if (!token) {
+                showToast("Please enter a token first.", "danger");
+                return;
+            }
+            btnUpdateToken.disabled = true;
+            try {
+                const res = await fetch('/api/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast(data.message || "Token updated successfully.", "success");
+                    tokenInput.value = "";
+                    await fetchStatus();
+                } else {
+                    showToast(data.detail || "Failed to update token.", "danger");
+                }
+            } catch (err) {
+                showToast("Network error occurred.", "danger");
+            } finally {
+                btnUpdateToken.disabled = false;
+            }
+        });
+
+        // Action: Auto Re-Authenticate with TP-Link Cloud
+        async function triggerReauth() {
+            showToast("Attempting cloud re-authentication...", "info");
+            try {
+                const res = await fetch('/api/reauth', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("Re-authenticated successfully!", "success");
+                    await fetchStatus();
+                } else {
+                    showToast(data.detail || "Re-authentication failed.", "danger");
+                }
+            } catch (err) {
+                showToast("Network error occurred.", "danger");
+            }
+        }
+        btnReauth.addEventListener('click', triggerReauth);
+        bannerReauthBtn.addEventListener('click', triggerReauth);
 
         // Initial fetch on page load
         fetchStatus();

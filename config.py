@@ -6,6 +6,9 @@ load_dotenv()
 
 class Config:
     TPLINK_HOST = os.getenv("TPLINK_HOST", "aps1-app-server.iot.i.tplinkcloud.com")
+    TPLINK_AUTH_HOST = os.getenv("TPLINK_AUTH_HOST", "wap.tplinkcloud.com")
+    TPLINK_EMAIL = os.getenv("TPLINK_EMAIL", "")
+    TPLINK_PASSWORD = os.getenv("TPLINK_PASSWORD", "")
     THING_ID = os.getenv("THING_ID", "")
     AUTHORIZATION = os.getenv("AUTHORIZATION", "")
     APP_CID = os.getenv("APP_CID", "")
@@ -71,3 +74,41 @@ class Config:
         if 'Content-Type' in headers:
             del headers['Content-Type']
         return headers
+
+    @classmethod
+    def set_authorization(cls, new_token: str) -> str:
+        """
+        Updates the authorization token in memory and persists it to the .env file.
+        Returns the formatted token.
+        """
+        token = new_token.strip()
+        if token and not token.startswith("ut|") and not token.startswith("Bearer "):
+            token = f"ut|{token}"
+
+        cls.AUTHORIZATION = token
+        os.environ["AUTHORIZATION"] = token
+
+        # Persist to .env if it exists or create it
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        try:
+            lines = []
+            token_updated = False
+            if os.path.exists(env_path):
+                with open(env_path, "r") as f:
+                    for line in f:
+                        if line.startswith("AUTHORIZATION="):
+                            lines.append(f"AUTHORIZATION={token}\n")
+                            token_updated = True
+                        else:
+                            lines.append(line)
+            if not token_updated:
+                lines.append(f"AUTHORIZATION={token}\n")
+
+            with open(env_path, "w") as f:
+                f.writelines(lines)
+        except Exception as e:
+            import logging
+            logging.getLogger("motor_automate.config").error(f"Failed to persist token to .env: {e}")
+
+        return token
+

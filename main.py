@@ -31,6 +31,9 @@ class BucketSizeModel(BaseModel):
 class ScheduleModel(BaseModel):
     time: str
 
+class TokenModel(BaseModel):
+    token: str
+
 @app.on_event("startup")
 async def startup_event():
     """Startup task to initialize and start background polling."""
@@ -65,8 +68,36 @@ async def get_status():
         "timezone": monitor_instance.timezone_name,
         "tplink_schedules": monitor_instance.tplink_schedules,
         "tplink_last_fetch": monitor_instance.tplink_last_fetch,
+        "token_error": monitor_instance.token_error,
+        "token_error_message": monitor_instance.token_error_message,
+        "has_credentials": TPLinkClient.has_credentials(),
+        "has_token": bool(Config.AUTHORIZATION),
         "history": monitor_instance.history
     }
+
+@app.post("/api/token")
+async def update_token(payload: TokenModel):
+    """Dynamically updates the TP-Link authorization token in memory and .env."""
+    if not payload.token or not payload.token.strip():
+        raise HTTPException(status_code=400, detail="Token cannot be empty.")
+    formatted_token = Config.set_authorization(payload.token)
+    monitor_instance.token_error = False
+    monitor_instance.token_error_message = None
+    logger.info("Authorization token updated dynamically via Web UI.")
+    masked = f"{formatted_token[:8]}...{formatted_token[-4:]}" if len(formatted_token) > 12 else "***"
+    return {"success": True, "message": "Token updated successfully.", "token_masked": masked}
+
+@app.post("/api/reauth")
+async def trigger_reauth():
+    """Manually triggers cloud re-authentication using configured email and password."""
+    if not TPLinkClient.has_credentials():
+        raise HTTPException(status_code=400, detail="No TPLINK_EMAIL and TPLINK_PASSWORD configured in .env.")
+    result = await TPLinkClient.login()
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    monitor_instance.token_error = False
+    monitor_instance.token_error_message = None
+    return {"success": True, "message": "Successfully re-authenticated with TP-Link cloud."}
 
 @app.post("/api/check")
 async def trigger_manual_check():

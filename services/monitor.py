@@ -8,7 +8,7 @@ import uuid
 from collections import deque
 from zoneinfo import ZoneInfo
 from config import Config
-from services.tplink import TPLinkClient
+from services.tplink import TPLinkClient, TokenInvalidError
 
 logger = logging.getLogger("motor_automate.monitor")
 
@@ -75,6 +75,10 @@ class MotorMonitor:
         self._tplink_last_fired = {}
         self.tplink_sync_hour = Config.TPLINK_SYNC_HOUR
         self.tplink_sync_minute = Config.TPLINK_SYNC_MINUTE
+
+        # Token status
+        self.token_error = False
+        self.token_error_message = None
 
     # ------------------------------------------------------------------ #
     # Persistence
@@ -357,10 +361,19 @@ class MotorMonitor:
         try:
             voltage = await TPLinkClient.get_voltage()
             self.last_voltage = voltage
+            self.token_error = False
+            self.token_error_message = None
             if feed_window and voltage is not None:
                 self.voltage_window.append(voltage)
             self.add_log(voltage, "READING", f"Voltage reading: {voltage}.")
             return {"timestamp": now_str, "voltage": voltage, "action": "READING"}
+        except TokenInvalidError as e:
+            self.token_error = True
+            self.token_error_message = str(e)
+            details = f"Authentication error (HTTP 401): {str(e)}"
+            logger.error(details)
+            self.add_log(None, "TOKEN_ERROR", details)
+            return {"timestamp": now_str, "voltage": None, "action": "TOKEN_ERROR", "error": str(e)}
         except Exception as e:
             details = f"Failed to check voltage: {str(e)}"
             logger.error(details)
