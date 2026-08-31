@@ -583,27 +583,6 @@
                 </div>
             </div>
 
-            <!-- Cloud Auth / Token Settings -->
-            <div class="control-row" style="flex-direction: column; align-items: stretch; gap: 0.75rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div class="control-info">
-                        <h4>TP-Link Cloud Auth</h4>
-                        <p id="token-status-desc" style="font-size: 0.8rem; color: var(--text-muted);">Checking token...</p>
-                    </div>
-                    <span id="token-status-badge" class="badge badge-success">Active</span>
-                </div>
-                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                    <input type="password" id="token-input" placeholder="Paste fresh ut|... token"
-                           style="flex: 1; min-width: 160px; padding: 0.45rem 0.65rem; border-radius: 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-family: inherit; font-size: 0.82rem;">
-                    <button class="btn btn-primary" id="btn-update-token" style="padding: 0.45rem 0.85rem; font-size: 0.8rem;">
-                        <i class="fa-solid fa-key"></i> Update
-                    </button>
-                    <button class="btn" id="btn-reauth" style="display: none; padding: 0.45rem 0.85rem; font-size: 0.8rem; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #fff;">
-                        <i class="fa-solid fa-arrows-rotate"></i> Re-Auth
-                    </button>
-                </div>
-            </div>
-
             <div style="display: flex; flex-direction: column; gap: 1rem; width: 100%;">
                 <div class="btn-group">
                     <button class="btn" id="btn-force-on" style="background: linear-gradient(135deg, #059669, #10b981); color: #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
@@ -693,11 +672,6 @@
 
         const tokenAlertBanner = document.getElementById('token-alert-banner');
         const bannerReauthBtn = document.getElementById('banner-reauth-btn');
-        const tokenStatusBadge = document.getElementById('token-status-badge');
-        const tokenStatusDesc = document.getElementById('token-status-desc');
-        const tokenInput = document.getElementById('token-input');
-        const btnUpdateToken = document.getElementById('btn-update-token');
-        const btnReauth = document.getElementById('btn-reauth');
 
         // Format 24h "HH:MM" as 12h "HH:MM AM/PM"
         function fmt12(hhmm) {
@@ -901,25 +875,12 @@
                 renderSchedules(data.schedules, data.timezone);
                 if (data.tplink_schedules) renderTplinkSchedules(data.tplink_schedules);
 
-                // Update token status
-                if (data.token_error) {
-                    tokenAlertBanner.style.display = 'flex';
-                    tokenStatusBadge.className = 'badge badge-danger';
-                    tokenStatusBadge.textContent = 'Expired (401)';
-                    tokenStatusDesc.textContent = data.token_error_message || 'Token expired (HTTP 401).';
-                } else {
-                    tokenAlertBanner.style.display = 'none';
-                    tokenStatusBadge.className = 'badge badge-success';
-                    tokenStatusBadge.textContent = 'Active';
-                    tokenStatusDesc.textContent = data.has_credentials ? 'Auto-refresh enabled' : 'Manual token active';
+                // Update token status banner
+                if (tokenAlertBanner) {
+                    tokenAlertBanner.style.display = data.token_error ? 'flex' : 'none';
                 }
-
-                if (data.has_credentials) {
-                    btnReauth.style.display = 'inline-flex';
-                    bannerReauthBtn.style.display = 'inline-flex';
-                } else {
-                    btnReauth.style.display = 'none';
-                    bannerReauthBtn.style.display = 'none';
+                if (bannerReauthBtn) {
+                    bannerReauthBtn.style.display = data.has_credentials ? 'inline-flex' : 'none';
                 }
 
                 // Keep refreshing while a polling session is active (motor is ON and
@@ -1121,35 +1082,6 @@
             }
         });
 
-        // Action: Update Authorization Token
-        btnUpdateToken.addEventListener('click', async () => {
-            const token = tokenInput.value.trim();
-            if (!token) {
-                showToast("Please enter a token first.", "danger");
-                return;
-            }
-            btnUpdateToken.disabled = true;
-            try {
-                const res = await fetch('/api/token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token })
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    showToast(data.message || "Token updated successfully.", "success");
-                    tokenInput.value = "";
-                    await fetchStatus();
-                } else {
-                    showToast(data.detail || "Failed to update token.", "danger");
-                }
-            } catch (err) {
-                showToast("Network error occurred.", "danger");
-            } finally {
-                btnUpdateToken.disabled = false;
-            }
-        });
-
         // Action: Auto Re-Authenticate with TP-Link Cloud
         async function triggerReauth() {
             showToast("Attempting cloud re-authentication...", "info");
@@ -1166,8 +1098,9 @@
                 showToast("Network error occurred.", "danger");
             }
         }
-        btnReauth.addEventListener('click', triggerReauth);
-        bannerReauthBtn.addEventListener('click', triggerReauth);
+        if (bannerReauthBtn) {
+            bannerReauthBtn.addEventListener('click', triggerReauth);
+        }
 
         // Initial fetch on page load
         fetchStatus();
